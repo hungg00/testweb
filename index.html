@@ -366,6 +366,13 @@ button{cursor:pointer;border:0}
 .mact,.mfoot{display:flex;gap:8px;flex-wrap:wrap}
 .mnote,.mempty{font-size:.75rem;opacity:.7;text-align:center}
 :root{--kbo:0px}
+#walk{position:fixed;right:calc(12px + env(safe-area-inset-right,0px));top:52%;transform:translateY(-50%);z-index:5;display:none;flex-direction:column;gap:12px}
+#walk button{width:62px;height:62px;border-radius:50%;background:var(--pill);color:var(--fg);font-size:1.5rem;line-height:1;backdrop-filter:blur(8px);box-shadow:0 4px 14px rgba(80,10,55,.22);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#walk button small{font-size:.62rem;font-weight:700;margin-top:1px}
+#walk button.down{background:var(--rose);color:#fff;transform:scale(.94)}
+#hint .ht{display:none}
+@media (pointer:coarse),(max-width:700px){#walk{display:flex}#hint .hk{display:none}#hint .ht{display:inline-block}}
+@media (max-height:520px){#walk{top:46%}#walk button{width:52px;height:52px}#walk{gap:8px}}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 button,select,input[type=range]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .ui{padding-left:calc(14px + env(safe-area-inset-left,0px));padding-right:calc(14px + env(safe-area-inset-right,0px))}
@@ -397,7 +404,7 @@ button,select,input[type=range]{touch-action:manipulation;-webkit-tap-highlight-
       <button id="mm" aria-label="Kho ký ức của Kito" title="Kho ký ức của Kito">📖</button>
     </span>
   </div>
-  <div id="hint"><span>Kéo để nhìn quanh · W A S D / ↑ ↓ để đi · ← → để quay</span></div>
+  <div id="hint"><span class="hk">Kéo để nhìn quanh · W A S D / ↑ ↓ để đi · ← → để quay</span><span class="ht">Kéo để nhìn quanh · giữ nút ▲ để đi · ⏸ để dừng tự đi</span></div>
 
   <div id="kb"><div class="nm">🌸 Kito</div><div id="ku"></div><div id="kt"></div><button id="kn">Tiếp ➜</button></div>
 
@@ -417,6 +424,10 @@ button,select,input[type=range]{touch-action:manipulation;-webkit-tap-highlight-
     <div class="note" id="note">Kito là người bạn nhỏ trong vườn, không thay thế bác sĩ, chuyên gia tâm lý hay người thân của cậu.</div>
   </div>
 
+  <div id="walk" aria-label="Nút đi">
+    <button id="wf" type="button" aria-label="Giữ để đi tới" title="Giữ để đi tới">▲<small>Đi</small></button>
+    <button id="wb" type="button" aria-label="Giữ để đi lùi" title="Giữ để đi lùi">▼</button>
+  </div>
   <div id="mctl" class="hidden">
     <select id="ms" aria-label="Chọn bài nhạc"></select>
     <button id="mnx" type="button" title="Bài ngẫu nhiên khác" aria-label="Bài ngẫu nhiên khác">🔀</button>
@@ -1407,6 +1418,27 @@ if(mem.music){
   ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,go));
 }
 
+/* ---- Nút đi (điện thoại) + tự đi dạo mặc định bật ---- */
+function holdBtn(id,key){
+  const b=$(id);
+  const on=e=>{e.preventDefault();K[key]=1;b.classList.add('down');try{b.setPointerCapture(e.pointerId)}catch(_){}};
+  const off=()=>{K[key]=0;b.classList.remove('down')};
+  b.addEventListener('pointerdown',on);
+  ['pointerup','pointercancel','lostpointercapture','pointerleave'].forEach(ev=>b.addEventListener(ev,off));
+  b.addEventListener('contextmenu',e=>e.preventDefault());
+  b.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){K[key]=1;e.preventDefault()}});
+  b.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter')K[key]=0});
+}
+holdBtn('wf','f');holdBtn('wb','b');
+addEventListener('blur',()=>{for(const k in K)K[k]=0;['wf','wb'].forEach(i=>$(i).classList.remove('down'))});
+function setAuto(v,save){
+  auto=!!v;ab.textContent=auto?'🚶':'⏸';
+  ab.title=ab.ariaLabel=auto?'Đang tự đi dạo – bấm để dừng':'Đã dừng – bấm để tự đi dạo';
+  if(save){mem.auto=auto;memSave()}
+}
+ab.onclick=()=>setAuto(!auto,true);
+setAuto(mem.auto!==false,false);   /* mặc định: tự đi dạo ở mọi thiết bị */
+
 /* ---- Lời chào đầu tiên (có nhắc lại ký ức) ---- */
 const hr=new Date().getHours(),late=hr>=23||hr<5;
 setTimeout(()=>{
@@ -1444,7 +1476,7 @@ function loop(t){
   yaw+=((K.tl||0)-(K.tr||0))*1.6*dt;
   let fx=-Math.sin(yaw),fz=-Math.cos(yaw),mx=0,mz=0;
   if(manual){const f=(K.f||0)-(K.b||0),s=(K.r||0)-(K.l||0);mx=(fx*f+Math.cos(yaw)*s)*2.4*dt;mz=(fz*f-Math.sin(yaw)*s)*2.4*dt}
-  else if(auto){mx=fx*1.5*dt;mz=fz*1.5*dt;if(t-lastLook>2500)yaw+=Math.sin(t*.00015)*.1*dt}
+  else if(auto&&document.activeElement!==ci){mx=fx*1.5*dt;mz=fz*1.5*dt;if(t-lastLook>2500)yaw+=Math.sin(t*.00015)*.1*dt}
   px+=mx;pz+=mz;const step=Math.hypot(mx,mz);dist+=step;phase+=step*2.6;
   const ccx=Math.floor(px/CH),ccz=Math.floor(pz/CH);
   if(ccx!==bcx||ccz!==bcz){bcx=ccx;bcz=ccz;build(ccx,ccz)}
